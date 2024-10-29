@@ -1,0 +1,8 @@
+# DO NOT MODIFY THE CODE BELOW #
+
+-V                          # Export environment of master node to the compute nodes
+-cwd                        # Execute the job from the current working directory
+-S /bin/bash                # Select shell
+-l h_rt=1:00:00             # Set maximum wall clock execution time for this job
+-q leopard-short.q          # Set queue
+-pe leopard-short 8         # Set parallel environment

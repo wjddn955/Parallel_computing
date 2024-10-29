@@ -1,0 +1,50 @@
+0. How to access the Leopard cluster
+
+    - Refer to BB announcements.
+
+1. Implementation
+
+    - Complete the TODO section in hashtable.c
+
+    - You are allowed to include additional libraries if you find them necessary for your implementation. 
+      However, Using any third-party hash table library is strictly prohibited. 
+    
+    - Write detailed comments to explain logic of your code. If you include any additional libraries, you must also comment on why they are necessary.  
+
+2. $ make
+
+3. Test
+
+    (1) local evaluation
+
+    - In your local machine.
+
+    - run hashtable with 5 arguments. (make sure that the second argument does not exceed 131072 operations)
+
+    - $ ./hashtable (number of buckets) (number of operations) (number of threads) (probability of insert) (probability of delete)
+
+    (2) cluster evaluation
+
+    - In Leopard master node.
+
+    - use qsub to submit your job to cluster.
+
+    - $ qsub -@ submit_options hash_table_(#)_(#)_(#).sge
+    : You should submit four .sge files via qsub. 
+      
+      Each file follows the naming format hash_table_(#)_(#)_(#).sge, 
+      where First number means number of buckets, second number is probability of insert, and third number means probability of delete.
+      
+      For each submission, You should include the -@ submit_options argument. 
+      This submit_options file has already set up, so do not modify it. 
+      Changing the file or omitting this argument may result in incorrect job submission, leading to failed runs or improper resource allocations.
+      
+    - You can track your job process by $ qstat
+
+    - When your job is finished, you will get four output files, .e, .o, .pe and .po.
+      Each file follows the naming format (job name).x(job ID), where x corresponds to e, o, pe, or po.
+
+    - .e logs the error message of job and .o logs the output message of job. 
+    
+    - .pe logs the error message of parallel environment and .po logs the output message of parallel environment.
+      If your job is successfully submitted and node allocation is completed, the .po will include the hostname of the allocated node.  
