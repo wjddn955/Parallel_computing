@@ -47,10 +47,9 @@ int hashtable_init(H_table_t hash_table, int numbuckets){
     hash_table->num_bucket = numbuckets; // Set the num of buckets
     hash_table->bucket = (struct bucket_t *) malloc(numbuckets * sizeof(struct bucket_t)); // Set the bucket to point the memory block(allocated by malloc)
 
-    if (hash_table->bucket == NULL) return -1;
+    if (hash_table->bucket == NULL) return -1; // If allocating bucket failed, return -1
 
-    for (int i = 0; i < numbuckets; i++) {
-        //hash_table->bucket[i].chain = NULL;
+    for (int i = 0; i < numbuckets; i++) { // Traverse through buckets and initiate their chain, next, key, initiate mutex
         hash_table->bucket[i].chain = (struct element *) malloc(sizeof (struct element));
         hash_table->bucket[i].chain->next = NULL;
         hash_table->bucket[i].chain->key = -1;
@@ -67,31 +66,31 @@ int hashtable_insert(H_table_t hash_table, int key){
     //return 0; otherwise, return -1
     //duplicates are allowed.
 
-    int bucket_idx = key % hash_table->num_bucket;
-    pthread_mutex_lock(&(hash_table->bucket[bucket_idx].mutex));
-    int ret = -1;
+    int bucket_idx = key % hash_table->num_bucket; // Calculate bucket index
+    struct element *new_element = (struct element *) malloc(sizeof(struct element)); // allocate memory for new_element
+    new_element->key = key;
 
+    pthread_mutex_lock(&(hash_table->bucket[bucket_idx].mutex)); // Acquire lock to modify hashtable
     struct element *current = hash_table->bucket[bucket_idx].chain;
-
     if (current->key == -1) { // Check if chain is empty
         current->key = key;
+        free(new_element);
         pthread_mutex_unlock(&(hash_table->bucket[bucket_idx].mutex));
+        
         return 0;
     }
 
-    struct element *new_element = (struct element *) malloc(sizeof(struct element));
     if (new_element == NULL) { // Allocating memory for new_element failed
+        free(new_element);
         pthread_mutex_unlock(&(hash_table->bucket[bucket_idx].mutex));
         return -1;
     }
     
-    new_element->key = key;
-    new_element->next = current;
+    new_element->next = current; // Position new_element before current (Put new element at chain position)
     hash_table->bucket[bucket_idx].chain = new_element;
-    ret = 0;
     pthread_mutex_unlock(&(hash_table->bucket[bucket_idx].mutex));
 
-    return ret;
+    return 0;
 }
 
 int hashtable_lookup(H_table_t hash_table, int key){
@@ -100,16 +99,13 @@ int hashtable_lookup(H_table_t hash_table, int key){
     //return 0; otherwise, return -1
 
     int ret = -1;
-
     int bucket_idx = key % hash_table->num_bucket;
-    pthread_mutex_lock(&(hash_table->bucket[bucket_idx].mutex));
-    
 
+    pthread_mutex_lock(&(hash_table->bucket[bucket_idx].mutex)); // Although lookup does not modify hashtable, it loads it so, acquire lock
     struct element *current = hash_table->bucket[bucket_idx].chain;
-    while (current != NULL) {
+    while (current != NULL) { // Traverse inside bucket, keep it until the end because duplicate keys are allowed
         if (current->key == key) {
-            pthread_mutex_unlock(&(hash_table->bucket[bucket_idx].mutex));
-            return 0;
+            ret = 0;
         }
         current = current->next;
     } 
@@ -125,12 +121,13 @@ int hashtable_delete(H_table_t hash_table, int key){
     //If it is in the hash table,
     //return 0; otherwise, return -1
     int bucket_idx = key % hash_table->num_bucket;
-    pthread_mutex_lock(&(hash_table->bucket[bucket_idx].mutex));
     int ret = -1;
-    
-    struct element *current = hash_table->bucket[bucket_idx].chain;
     struct element *prev = NULL;
-    while (current != NULL) {
+    
+    pthread_mutex_lock(&(hash_table->bucket[bucket_idx].mutex));
+    struct element *current = hash_table->bucket[bucket_idx].chain;
+    // Traverse until the end, because duplicate keys are allowed
+    while (current != NULL) { // Traverse inside bucket and modify the link between elements after delete target element
         if (current->key == key) {
             if (prev == NULL) {
                 hash_table->bucket[bucket_idx].chain = current->next;
@@ -163,7 +160,8 @@ void *test(void *arguments){ // pthread Function
     struct arg_struct *args = (struct args_struct *)arguments;
     hash_table = args->hash_table;
     thr_id = args->thr_id;
-
+    
+    // Evenly divide workload between threads
     start = (num_op/nthr) * thr_id;
     if (thr_id == nthr -1) {
         end = num_op;
@@ -189,7 +187,7 @@ int main(int argc, char** argv){
     struct timespec time_info;
     const int hash_num_bucket = atoi(argv[1]);
     num_op = atoi(argv[2]);
-    nthr = atoi(argv[3]);
+    nthr = atoi(argv[3]);   
     const int i_ratio = atoi(argv[4]);
     const int d_ratio = atoi(argv[5]);
     int i, thr_id, status, result=0;
@@ -251,6 +249,8 @@ int main(int argc, char** argv){
         //TODO: create thread by pthread_create()
         // use arg_struct to pass the multiple arguments
         // (thread_id, hash_table)
+
+        // Make arg to pass to threads
         struct arg_struct *arg = malloc(sizeof(struct arg_struct));
         if (arg == NULL) {
             perror("malloc arg");
@@ -265,6 +265,8 @@ int main(int argc, char** argv){
     }
     for(i=0; i<nthr; i++) {
         //TODO: use pthread_join to wait till the thread terminate
+
+        // Use pthread_join
         status = pthread_join(p_thread[i], NULL);
         if (status != 0) exit(EXIT_FAILURE);
     }
