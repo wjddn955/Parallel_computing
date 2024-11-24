@@ -1,0 +1,40 @@
+0. How to access the Leopard cluster
+
+    - Refer to BB announcements.
+
+1. Implementation
+
+    - Complete the unfinished parts, including the TODO parts, in mergesort.c
+
+    - Write detailed comments to explain logic of your code.
+
+2. $ make
+
+3. Test
+
+    (1) For testing/debugging
+
+    - In Leopard master node.
+
+    - run mergesort with a small number of the array elements. 
+
+    - $ qsub -V -cwd -S /bin/bash -l h_rt=00:01:00 -q leopard-short.q -pe leopard-short 8 -N mpi.8 -o ./results -e ./results -b y mpirun -np 8 -machinefile \$TMPDIR/machines mergesort 1024
+
+    (2) cluster evaluation
+
+    - In Leopard master node.
+
+    - run submit_jobs.sh to submit your jobs to cluster
+
+    - $ bash submit_jobs.sh
+    : The submit_jobs.sh script submits 6 jobs, each with a different number of processes. 
+
+    - You can track your job process by $ qstat
+
+    - When your job is finished, you will get four output files, .e, .o, .pe and .po. in the results directory. 
+      Each file follows the naming format (job name).x(job ID), where x corresponds to e, o, pe, or po.
+
+    - .e logs the error message of job and .o logs the output message of job. 
+    
+    - .pe logs the error message of parallel environment and .po logs the output message of parallel environment.
+      If your job is successfully submitted and node allocation is completed, the .po will include the hostname of the allocated node.  
