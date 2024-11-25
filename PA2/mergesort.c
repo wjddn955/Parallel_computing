@@ -100,13 +100,6 @@ int main(int argc, char **argv)
 			data[i] = random();
 	}
 
-	if (id == 0) {
-		printf("Before sorting: ");
-		for (i = 0; i < n; i++) {
-			printf("%d ", data[i]);
-		}
-		printf("\n");
-	}
 
 	start_time = clock();
 
@@ -142,70 +135,93 @@ int main(int argc, char **argv)
 		// Proceed mergesort for each processes' local data
 		mergesort(local_data, 0, local_data_size -1);
  
-		int step = 1;
 		int total_participant_num = p;
-		int odd_participant = 0;
+		int odd_participant_happen = 0; // To check if thre was case that number of participating processes is odd
 
 		// Merge data from processes
 		while (total_participant_num > 1) {
-			// Handle the case when there are odd number of processes
-            if (total_participant_num % 2 == 1) {
-				// The last process should send data to root process
-                if (id == total_participant_num - 1) {
-                    MPI_Send(local_data, local_data_size, MPI_INT, 0, 0, MPI_COMM_WORLD);
-                    break;
-                }
-                if (id == 0) {
-                    odd_participant = 1;
-                }
-            }
-			// At each step, the number of participating processes get halved
-            if (id % (2 * step) == 0) {
-                if (id + step < total_participant_num) { // Ban the last process
-                    int opponent_data_size = sendcounts[id + step];
-                    int *opponent_data = (int *)malloc(opponent_data_size * sizeof(int));
-                    MPI_Recv(opponent_data, opponent_data_size, MPI_INT, id + step, 0, MPI_COMM_WORLD, &status);
 
-                    // Merge received data with local data
-                    int *merged_data = merge(local_data, opponent_data, local_data_size, opponent_data_size);
+			// Total number of participating processes is odd
+			if (total_participant_num % 2 != 0) {
+				// The middle process send data to 0th process
+				if (id == total_participant_num / 2) {
+					MPI_Send(local_data, local_data_size, MPI_INT, 0, 0, MPI_COMM_WORLD);
+					free(local_data);
+					local_data = NULL;
+					break;
+				}
+				// 0th process receive data from the middl process and merge data
+				if (id == 0) {
+					int opponent_idx = total_participant_num / 2;
+					int opponent_data_size = sendcounts[opponent_idx];
+					int *opponent_data = (int *)malloc(opponent_data_size * sizeof(int));
+					MPI_Recv(opponent_data, opponent_data_size, MPI_INT, opponent_idx, 0, MPI_COMM_WORLD, &status);
 
-                    free(local_data);
-                    local_data = merged_data;
-                    local_data_size += opponent_data_size;
+					// Merge received data
+					int *merged_data = merge(local_data, opponent_data, local_data_size, opponent_data_size);
+					free(local_data);
+					local_data = merged_data;
+					local_data_size += opponent_data_size;
 
-                    free(opponent_data);
-                }
-            } else {
-				// Send data to opponent
-                int opponent_id = id - step;
-                MPI_Send(local_data, local_data_size, MPI_INT, opponent_id, 0, MPI_COMM_WORLD);
-                break;
-            }
+					// Update sendcounts
+					sendcounts[id] = local_data_size;
+					sendcounts[opponent_idx] = 0;
+					free(opponent_data);
+				}
+				odd_participant_happen = 1; // odd happend -> True
+			}
+            
+			// No matter odd happen or not, we have even number of participating processes
+			// First half among processes receive data
+			if (id < total_participant_num / 2) { 
+				int opponent_idx = total_participant_num - id -1;
+				int opponent_data_size = sendcounts[opponent_idx];
+				int *opponent_data = (int *)malloc(opponent_data_size * sizeof(int));
+				MPI_Recv(opponent_data, opponent_data_size, MPI_INT, opponent_idx, 0, MPI_COMM_WORLD, &status);
+
+				// Merge received data with local data
+				int *merged_data = merge(local_data, opponent_data, local_data_size, opponent_data_size);
+
+				free(local_data);
+
+				local_data = merged_data;
+				local_data_size += opponent_data_size;
+
+				// Updating sendcounts 
+				for (int i = 0; i < total_participant_num / 2; i++) {
+					sendcounts[i] += sendcounts[total_participant_num - 1 - i];
+					sendcounts[total_participant_num - 1 - i] = 0;
+				}
+				free(opponent_data);
+			}
+
+			else if (id >= total_participant_num / 2){
+				// The middle process already sent it's data to 0th process
+				if (odd_participant_happen && id == total_participant_num / 2) {
+					break;
+				}
+				else {
+					// Send data to opponent
+					int opponent_id = total_participant_num - id - 1;
+					MPI_Send(local_data, local_data_size, MPI_INT, opponent_id, 0, MPI_COMM_WORLD);
+					free(local_data);
+					local_data = NULL;
+					break;
+				}	
+			}
+				
 			// Update step and total_participant_num for next iteration
-            step *= 2;
-            total_participant_num = (total_participant_num + 1) / 2;            
-        }
+			total_participant_num = total_participant_num / 2;
+			odd_participant_happen = 0;
+		} 
 
-		// If there was odd number of processors, process 0 merges additional data from the last processor
-		if (odd_participant == 1 && id == 0) {
-			int last_processor_data_size = sendcounts[total_participant_num - 1];
-			int *last_processor_data = (int *)malloc(last_processor_data_size * sizeof(int));
-			MPI_Recv(last_processor_data, last_processor_data_size, MPI_INT, total_participant_num - 1, 0, MPI_COMM_WORLD, &status);
+	if (id == 0) {sorted_data = local_data;} 
+	else {free(local_data);}
 
-			int *final_merged_data = merge(local_data, last_processor_data, local_data_size, last_processor_data_size);
-			free(local_data);
-			free(last_processor_data);
-
-			local_data = final_merged_data;
-			local_data_size += last_processor_data_size;
-		}
-
-        if (id == 0) {sorted_data = local_data;} 
-		else {free(local_data);}
-
-        free(sendcounts);
-        free(displs);
-    }
+	free(sendcounts);
+	free(displs);
+			          
+	}
 
 	stop_time = clock();
 
