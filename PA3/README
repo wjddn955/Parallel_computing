@@ -1,0 +1,37 @@
+0. How to access the Dumbo cluster
+
+    - Refer to BB announcement.
+
+1. Implementation
+
+    - Complete the unfinished parts, including the TODO parts, in matrixMul.cu
+
+    - Write detailed comments to explain logic of your code.
+
+2. $ make
+
+3. Test 
+
+    (1) For testing/debugging
+
+    - In Dumbo master node.
+
+    - run matrixMul with a small number of the row/column length.
+
+    - $ sbatch -J 2mm -o %x_%N.o%j -e %x_%N.e%j -p gpu_edu -N 1 -n 1 -c 16 --gres=gpu:4 --time 00:20:00 --exclude=dumbo0[60,62,64-66,68-71] --wrap="./matrixMul 128"
+
+    (2) Cluster evaluation
+
+    - In Dumbo master node.
+
+    - run submit_job.sh to submit your job to cluster
+
+    - $ bash submit_job.sh
+    : The submit_job.sh script submits a single job for matrix multiplication of two 2048 X 2048 matrices.
+
+    - You can track your job process by $ squeue -j (job ID)
+
+    - When your job is finished, you will get two output files. .e, .o. 
+      Each file follows the naming format (job name)_(allocated node name).x(job ID), where x corresponds to e or o.
+
+    - .e logs the error message of job and .o logs the output message of job.
